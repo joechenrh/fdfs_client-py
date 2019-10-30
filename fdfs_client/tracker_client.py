@@ -16,24 +16,23 @@ from fdfs_client.exceptions import (
 )
 from fdfs_client.utils import *
 
-
 def parse_storage_status(status_code):
     try:
         ret = {
-            FDFS_STORAGE_STATUS_INIT: lambda: 'INIT',
-            FDFS_STORAGE_STATUS_WAIT_SYNC: lambda: 'WAIT_SYNC',
-            FDFS_STORAGE_STATUS_SYNCING: lambda: 'SYNCING',
-            FDFS_STORAGE_STATUS_IP_CHANGED: lambda: 'IP_CHANGED',
-            FDFS_STORAGE_STATUS_DELETED: lambda: 'DELETED',
-            FDFS_STORAGE_STATUS_OFFLINE: lambda: 'OFFLINE',
-            FDFS_STORAGE_STATUS_ONLINE: lambda: 'ONLINE',
-            FDFS_STORAGE_STATUS_ACTIVE: lambda: 'ACTIVE',
-            FDFS_STORAGE_STATUS_RECOVERY: lambda: 'RECOVERY'
+            FDFS_STORAGE_STATUS_INIT : lambda       : 'INIT',
+            FDFS_STORAGE_STATUS_WAIT_SYNC : lambda  : 'WAIT_SYNC',
+            FDFS_STORAGE_STATUS_SYNCING : lambda    : 'SYNCING',
+            FDFS_STORAGE_STATUS_IP_CHANGED : lambda : 'IP_CHANGED',
+            FDFS_STORAGE_STATUS_DELETED : lambda    : 'DELETED',
+            FDFS_STORAGE_STATUS_OFFLINE : lambda    : 'OFFLINE',
+            FDFS_STORAGE_STATUS_ONLINE : lambda     : 'ONLINE',
+            FDFS_STORAGE_STATUS_ACTIVE : lambda     : 'ACTIVE',
+            FDFS_STORAGE_STATUS_RECOVERY : lambda   : 'RECOVERY'
         }[status_code]()
     except KeyError:
         ret = 'UNKNOW'
     return ret
-
+    
 
 class Storage_info(object):
     def __init__(self):
@@ -41,18 +40,21 @@ class Storage_info(object):
         self.id = ''
         self.ip_addr = ''
         self.domain_name = ''
-        self.src_ip_addr = ''
+        self.src_id = ''
         self.version = ''
+        self.join_time = datetime.fromtimestamp(0).isoformat()
+        self.up_time = datetime.fromtimestamp(0).isoformat()
         self.totalMB = ''
         self.freeMB = ''
         self.upload_prio = 0
-        self.join_time = datetime.fromtimestamp(0).isoformat()
-        self.up_time = datetime.fromtimestamp(0).isoformat()
         self.store_path_count = 0
         self.subdir_count_per_path = 0
+        self.curr_write_path = 0
         self.storage_port = 23000
         self.storage_http_port = 80
-        self.curr_write_path = 0
+        self.alloc_count = 0
+        self.current_count = 0
+        self.max_count = 0
         self.total_upload_count = 0
         self.success_upload_count = 0
         self.total_append_count = 0
@@ -95,51 +97,60 @@ class Storage_info(object):
         self.last_sync_update = datetime.fromtimestamp(0).isoformat()
         self.last_synced_time = datetime.fromtimestamp(0).isoformat()
         self.last_heartbeat_time = datetime.fromtimestamp(0).isoformat()
-        self.if_trunk_server = 0
-        # fmt = |-status(1)-ipaddr(16)-domain(128)-srcipaddr(16)-ver(6)-52*8-|
-        self.fmt = '!B %ds %ds %ds %ds %ds 52QB' % (FDFS_STORAGE_ID_MAX_SIZE, \
-                                                    IP_ADDRESS_SIZE, \
-                                                    FDFS_DOMAIN_NAME_MAX_LEN, \
-                                                    IP_ADDRESS_SIZE, \
-                                                    FDFS_VERSION_SIZE)
+        self.if_trunk_server = ''
+        #fmt = |-status(1)-ipaddr(16)-domain(128)-srcipaddr(16)-ver(6)-52*8-|
+        self.fmt = '!B 16s 16s 128s 16s 6s 10Q 4s4s4s 42Q?'
 
     def set_info(self, bytes_stream):
-        (self.status, id, ip_addr, domain_name, src_ip_addr, version, join_time, up_time, totalMB, freeMB, self.upload_prio,
-         self.store_path_count, self.subdir_count_per_path, self.storage_port, self.storage_http_port, self.curr_write_path,
-         self.total_upload_count, self.success_upload_count, self.total_append_count, self.success_append_count, self.total_modify_count, self.success_modify_count,
-         self.total_truncate_count, self.success_truncate_count, self.total_setmeta_count, self.success_setmeta_count,
-         self.total_del_count, self.success_del_count, self.total_download_count, self.success_download_count, self.total_getmeta_count, self.success_getmeta_count,
-         self.total_create_link_count, self.success_create_link_count, self.total_del_link_count, self.success_del_link_count,
-         self.total_upload_bytes, self.success_upload_bytes, self.total_append_bytes, self.total_append_bytes, self.total_modify_bytes, self.success_modify_bytes,
-         self.total_download_bytes, self.success_download_bytes, self.total_sync_in_bytes, self.success_sync_in_bytes,
-         self.total_sync_out_bytes, self.success_sync_out_bytes, self.total_file_open_count, self.success_file_open_count,
-         self.total_file_read_count, self.success_file_read_count, self.total_file_write_count, self.success_file_write_count,
-         last_source_sync, last_sync_update, last_synced_time, last_heartbeat_time, self.if_trunk_server) \
-            = struct.unpack(self.fmt, bytes_stream)
+        (self.status, self.id, ip_addr, domain_name, self.src_id,\
+         version, join_time, up_time, totalMB, freeMB, \
+         self.upload_prio, self.store_path_count, \
+         self.subdir_count_per_path, self.curr_write_path, \
+         self.storage_port, self.storage_http_port, \
+         self.alloc_count, self.current_count, self.max_count, \
+         self.total_upload_count, self.success_upload_count, \
+         self.total_append_count, self.success_append_count, \
+         self.total_modify_count, self.success_modify_count, \
+         self.total_truncate_count,self.success_truncate_count, \
+         self.total_setmeta_count, self.success_setmeta_count, \
+         self.total_del_count,    self.success_del_count, \
+         self.total_download_count,self.success_download_count, \
+         self.total_getmeta_count, self.success_getmeta_count, \
+         self.total_create_link_count, self.success_create_link_count, \
+         self.total_del_link_count, self.success_del_link_count, \
+         self.total_upload_bytes, self.success_upload_bytes, \
+         self.total_append_bytes, self.total_append_bytes, \
+         self.total_modify_bytes, self.success_modify_bytes, \
+         self.total_download_bytes, self.success_download_bytes, \
+         self.total_sync_in_bytes, self.success_sync_in_bytes, \
+         self.total_sync_out_bytes, self.success_sync_out_bytes, \
+         self.total_file_open_count, self.success_file_open_count, \
+         self.total_file_read_count, self.success_file_read_count, \
+         self.total_file_write_count, self.success_file_write_count, \
+         last_source_sync, last_sync_update, last_synced_time, \
+         last_heartbeat_time, self.if_trunk_server,) \
+          = struct.unpack(self.fmt, bytes_stream)
         try:
-            self.id = id.strip(b'\x00').decode()
-            self.ip_addr = ip_addr.strip(b'\x00').decode()
-            self.domain_name = domain_name.strip(b'\x00').decode()
-            self.version = version.strip(b'\x00').decode()
-            self.src_ip_addr = src_ip_addr.strip(b'\x00').decode()
+            self.ip_addr = ip_addr.strip('\x00')
+            self.domain_name = domain_name.strip('\x00')
+            self.version = version.strip('\x00')
             self.totalMB = appromix(totalMB, FDFS_SPACE_SIZE_BASE_INDEX)
             self.freeMB = appromix(freeMB, FDFS_SPACE_SIZE_BASE_INDEX)
-        except ValueError as e:
+        except ValueError, e:
             raise ResponseError('[-] Error: disk space overrun, can not represented it.')
         self.join_time = datetime.fromtimestamp(join_time).isoformat()
-        self.up_time = datetime.fromtimestamp(up_time).isoformat()
+        self.up_time   = datetime.fromtimestamp(up_time).isoformat()
         self.last_source_sync = datetime.fromtimestamp(last_source_sync).isoformat()
         self.last_sync_update = datetime.fromtimestamp(last_sync_update).isoformat()
         self.last_synced_time = datetime.fromtimestamp(last_synced_time).isoformat()
         self.last_heartbeat_time = \
-            datetime.fromtimestamp(last_heartbeat_time).isoformat()
+           datetime.fromtimestamp(last_heartbeat_time).isoformat()
         return True
 
     def __str__(self):
-        """Transform to readable string."""
+        '''Transform to readable string.'''
 
-        s = 'Storage information:\n'
-        s += '\tid = %s\n' % (self.id)
+        s  = 'Storage information:\n'
         s += '\tip_addr = %s (%s)\n' % (self.ip_addr, parse_storage_status(self.status))
         s += '\thttp domain = %s\n' % self.domain_name
         s += '\tversion = %s\n' % self.version
@@ -153,7 +164,7 @@ class Storage_info(object):
         s += '\tstorage port = %d\n' % self.storage_port
         s += '\tstorage HTTP port = %d\n' % self.storage_http_port
         s += '\tcurrent write path = %d\n' % self.curr_write_path
-        s += '\tsource ip_addr = %s\n' % self.src_ip_addr
+        s += '\tsource ip_addr = %s\n' % self.ip_addr
         s += '\tif_trunk_server = %d\n' % self.if_trunk_server
         s += '\ttotal upload count = %ld\n' % self.total_upload_count
         s += '\tsuccess upload count = %ld\n' % self.success_upload_count
@@ -205,26 +216,26 @@ class Storage_info(object):
 
 class Group_info(object):
     def __init__(self):
-        self.group_name = ''
-        self.totalMB = ''
-        self.freeMB = ''
-        self.trunk_freeMB = ''
-        self.count = 0
-        self.storage_port = 0
-        self.store_http_port = 0
-        self.active_count = 0
-        self.curr_write_server = 0
-        self.store_path_count = 0
+        self.group_name            = ''
+        self.totalMB               = ''
+        self.freeMB                = ''
+        self.trunk_freeMB          = ''
+        self.count                 = 0
+        self.storage_port          = 0
+        self.store_http_port       = 0
+        self.active_count          = 0
+        self.curr_write_server     = 0
+        self.store_path_count      = 0
         self.subdir_count_per_path = 0
-        self.curr_trunk_file_id = 0
-        self.fmt = '!%ds 11Q' % (FDFS_GROUP_NAME_MAX_LEN + 1)
+        self.curr_trunk_file_id    = 0
+        self.fmt                   = '!%ds 11Q' % (FDFS_GROUP_NAME_MAX_LEN + 1)
         return None
 
     def __str__(self):
 
         s = 'Group information:\n'
         s += '\tgroup name = %s\n' % self.group_name
-        s += '\tdisk total space = %s\n' % self.totalMB
+        s += '\ttotal disk space = %s\n' % self.totalMB
         s += '\tdisk free space = %s\n' % self.freeMB
         s += '\ttrunk free space = %s\n' % self.trunk_freeMB
         s += '\tstorage server count = %d\n' % self.count
@@ -241,11 +252,11 @@ class Group_info(object):
         (group_name, totalMB, freeMB, trunk_freeMB, self.count, self.storage_port, \
          self.store_http_port, self.active_count, self.curr_write_server, \
          self.store_path_count, self.subdir_count_per_path, self.curr_trunk_file_id) \
-            = struct.unpack(self.fmt, bytes_stream)
+        = struct.unpack(self.fmt, bytes_stream)
         try:
-            self.group_name = group_name.strip(b'\x00').decode()
-            self.totalMB = appromix(totalMB, FDFS_SPACE_SIZE_BASE_INDEX)
+            self.group_name = group_name.strip('\x00')
             self.freeMB = appromix(freeMB, FDFS_SPACE_SIZE_BASE_INDEX)
+            self.totalMB = appromix(totalMB, FDFS_SPACE_SIZE_BASE_INDEX)
             self.trunk_freeMB = appromix(trunk_freeMB, FDFS_SPACE_SIZE_BASE_INDEX)
         except ValueError:
             raise DataError('[-] Error disk space overrun, can not represented it.')
@@ -255,15 +266,14 @@ class Group_info(object):
 
 
 class Tracker_client(object):
-    """Class Tracker client."""
-
+    '''Class Tracker client.'''
     def __init__(self, pool):
         self.pool = pool
 
-    def tracker_list_servers(self, group_name, storage_ip=None):
-        """
+    def tracker_list_servers(self, group_name, storage_ip = None):
+        '''
         List servers in a storage group
-        """
+        '''
         conn = self.pool.get_connection()
         th = Tracker_header()
         ip_len = len(storage_ip) if storage_ip else 0
@@ -277,7 +287,7 @@ class Tracker_client(object):
         try:
             th.send_header(conn)
             send_buffer = struct.pack(group_fmt, group_name) + \
-                          struct.pack(storage_ip_fmt, store_ip_addr)
+                            struct.pack(storage_ip_fmt, store_ip_addr)
             tcp_send_data(conn, send_buffer)
             th.recv_header(conn)
             if th.status != 0:
@@ -288,10 +298,9 @@ class Tracker_client(object):
             recv_size = len(recv_buffer)
             if recv_size % si_fmt_size != 0:
                 errinfo = '[-] Error: response size not match, expect: %d, actual: %d' \
-                          % (th.pkg_len, recv_size)
+                                   % (th.pkg_len, recv_size)
                 raise ResponseError(errinfo)
         except ConnectionError:
-            conn.disconnect()
             raise
         finally:
             self.pool.release(conn)
@@ -299,7 +308,7 @@ class Tracker_client(object):
         si_list = []
         i = 0
         while num_storage:
-            si.set_info(recv_buffer[(i * si_fmt_size): ((i + 1) * si_fmt_size)])
+            si.set_info(recv_buffer[(i * si_fmt_size) : ((i + 1) * si_fmt_size)])
             si_list.append(si)
             si = Storage_info()
             num_storage -= 1
@@ -314,7 +323,7 @@ class Tracker_client(object):
         th = Tracker_header()
         th.pkg_len = FDFS_GROUP_NAME_MAX_LEN
         th.cmd = TRACKER_PROTO_CMD_SERVER_LIST_ONE_GROUP
-        # group_fmt: |-group_name(16)-|
+        #group_fmt: |-group_name(16)-|
         group_fmt = '!%ds' % FDFS_GROUP_NAME_MAX_LEN
         try:
             th.send_header(conn)
@@ -327,11 +336,10 @@ class Tracker_client(object):
             group_info = Group_info()
             group_info.set_info(recv_buffer)
         except ConnectionError:
-            conn.disconnect()
             raise
         finally:
             self.pool.release(conn)
-        return group_info
+        return group_info   
 
     def tracker_list_all_groups(self):
         conn = self.pool.get_connection()
@@ -343,8 +351,7 @@ class Tracker_client(object):
             if th.status != 0:
                 raise DataError('[-] Error: %d, %s' % (th.status, os.strerror(th.status)))
             recv_buffer, recv_size = tcp_recv_response(conn, th.pkg_len)
-        except ConnectionError:
-            conn.disconnect()
+        except:
             raise
         finally:
             self.pool.release(conn)
@@ -352,7 +359,7 @@ class Tracker_client(object):
         gi_fmt_size = gi.get_fmt_size()
         if recv_size % gi_fmt_size != 0:
             errmsg = '[-] Error: Response size is mismatch, except: %d, actul: %d' \
-                     % (th.pkg_len, recv_size)
+                    % (th.pkg_len, recv_size)
             raise ResponseError(errmsg)
         num_groups = recv_size / gi_fmt_size
         ret_dict = {}
@@ -360,17 +367,17 @@ class Tracker_client(object):
         gi_list = []
         i = 0
         while num_groups:
-            gi.set_info(recv_buffer[i * gi_fmt_size: (i + 1) * gi_fmt_size])
+            gi.set_info(recv_buffer[i * gi_fmt_size : (i + 1) * gi_fmt_size])
             gi_list.append(gi)
             gi = Group_info()
             i += 1
             num_groups -= 1
         ret_dict['Groups'] = gi_list
         return ret_dict
-
+        
     def tracker_query_storage_stor_without_group(self):
-        """Query storage server for upload, without group name.
-        Return: Storage_server object"""
+        '''Query storage server for upload, without group name.
+        Return: Storage_server object'''
         conn = self.pool.get_connection()
         th = Tracker_header()
         th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITHOUT_GROUP_ONE
@@ -383,28 +390,27 @@ class Tracker_client(object):
             if recv_size != TRACKER_QUERY_STORAGE_STORE_BODY_LEN:
                 errmsg = '[-] Error: Tracker response length is invaild, '
                 errmsg += 'expect: %d, actual: %d' \
-                          % (TRACKER_QUERY_STORAGE_STORE_BODY_LEN, recv_size)
+                         % (TRACKER_QUERY_STORAGE_STORE_BODY_LEN, recv_size)
                 raise ResponseError(errmsg)
         except ConnectionError:
-            conn.disconnect()
             raise
         finally:
             self.pool.release(conn)
-        # recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
+        #recv_fmt |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)|
         recv_fmt = '!%ds %ds Q B' % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
         store_serv = Storage_server()
         (group_name, ip_addr, \
          store_serv.port, store_serv.store_path_index) = struct.unpack(recv_fmt, recv_buffer)
-        store_serv.group_name = group_name.strip(b'\x00').decode()
-        store_serv.ip_addr = ip_addr.strip(b'\x00').decode()
+        store_serv.group_name = group_name.strip('\x00')
+        store_serv.ip_addr = ip_addr.strip('\x00')
         return store_serv
 
     def tracker_query_storage_stor_with_group(self, group_name):
-        """Query storage server for upload, based group name.
+        '''Query storage server for upload, based group name.
         arguments:
         @group_name: string
         @Return Storage_server object
-        """
+        '''
         conn = self.pool.get_connection()
         th = Tracker_header()
         th.cmd = TRACKER_PROTO_CMD_SERVICE_QUERY_STORE_WITH_GROUP_ONE
@@ -421,40 +427,39 @@ class Tracker_client(object):
             if recv_size != TRACKER_QUERY_STORAGE_STORE_BODY_LEN:
                 errmsg = '[-] Error: Tracker response length is invaild, '
                 errmsg += 'expect: %d, actual: %d' \
-                          % (TRACKER_QUERY_STORAGE_STORE_BODY_LEN, recv_size)
+                            % (TRACKER_QUERY_STORAGE_STORE_BODY_LEN, recv_size)
                 raise ResponseError(errmsg)
         except ConnectionError:
-            conn.disconnect()
             raise
         finally:
             self.pool.release(conn)
-        # recv_fmt: |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)-|
+        #recv_fmt: |-group_name(16)-ipaddr(16-1)-port(8)-store_path_index(1)-|
         recv_fmt = '!%ds %ds Q B' % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
         store_serv = Storage_server()
         (group, ip_addr, \
          store_serv.port, store_serv.store_path_index) = struct.unpack(recv_fmt, recv_buffer)
-        store_serv.group_name = group.strip(b'\x00').decode()
-        store_serv.ip_addr = ip_addr.strip(b'\x00').decode()
+        store_serv.group_name = group.strip('\x00')
+        store_serv.ip_addr = ip_addr.strip('\x00')
         return store_serv
 
-    def _tracker_do_query_storage(self, group_name, filename, cmd):
-        """
+    def _tracker_do_query_storage(self,group_name, filename, cmd):
+        '''
         core of query storage, based group name and filename. 
         It is useful download, delete and set meta.
         arguments:
         @group_name: string
         @filename: string. remote file_id
         @Return: Storage_server object
-        """
+        '''
         conn = self.pool.get_connection()
         th = Tracker_header()
         file_name_len = len(filename)
         th.pkg_len = FDFS_GROUP_NAME_MAX_LEN + file_name_len
         th.cmd = cmd
         th.send_header(conn)
-        # query_fmt: |-group_name(16)-filename(file_name_len)-|
+        #query_fmt: |-group_name(16)-filename(file_name_len)-|
         query_fmt = '!%ds %ds' % (FDFS_GROUP_NAME_MAX_LEN, file_name_len)
-        send_buffer = struct.pack(query_fmt, group_name.encode(), filename.encode())
+        send_buffer = struct.pack(query_fmt, group_name, filename)
         try:
             tcp_send_data(conn, send_buffer)
             th.recv_header(conn)
@@ -466,26 +471,28 @@ class Tracker_client(object):
                 errmsg += 'expect: %d, actual: %d' % (th.pkg_len, recv_size)
                 raise ResponseError(errmsg)
         except ConnectionError:
-            conn.disconnect()
             raise
         finally:
             self.pool.release(conn)
-        # recv_fmt: |-group_name(16)-ip_addr(16)-port(8)-|
+        #recv_fmt: |-group_name(16)-ip_addr(16)-port(8)-|
         recv_fmt = '!%ds %ds Q' % (FDFS_GROUP_NAME_MAX_LEN, IP_ADDRESS_SIZE - 1)
         store_serv = Storage_server()
         (group_name, ipaddr, store_serv.port) = struct.unpack(recv_fmt, recv_buffer)
-        store_serv.group_name = group_name.strip(b'\x00').decode()
-        store_serv.ip_addr = ipaddr.strip(b'\x00').decode()
+        store_serv.group_name = group_name.strip('\x00')
+        store_serv.ip_addr = ipaddr.strip('\x00')
         return store_serv
 
     def tracker_query_storage_update(self, group_name, filename):
-        """
+        '''
         Query storage server to update(delete and set_meta).
-        """
-        return self._tracker_do_query_storage(group_name, filename, TRACKER_PROTO_CMD_SERVICE_QUERY_UPDATE)
+        '''
+        return self._tracker_do_query_storage(group_name, filename, \
+                                              TRACKER_PROTO_CMD_SERVICE_QUERY_UPDATE)
 
     def tracker_query_storage_fetch(self, group_name, filename):
-        """
+        '''
         Query storage server to download.
-        """
-        return self._tracker_do_query_storage(group_name, filename, TRACKER_PROTO_CMD_SERVICE_QUERY_FETCH_ONE)
+        '''
+        return self._tracker_do_query_storage(group_name, filename, \
+                                              TRACKER_PROTO_CMD_SERVICE_QUERY_FETCH_ONE)
+    
